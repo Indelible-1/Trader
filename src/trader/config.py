@@ -7,6 +7,9 @@ from typing import Any, Dict
 
 import yaml
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class RedisStreamsConfig(BaseModel):

@@ -1,73 +1,93 @@
 # Trader Bot Platform
 
-This repository implements the **Intelligent Adaptive Trading Bot** described in the product and technical documentation under `docs/`. The goal is to provide a production-ready, multi-service architecture that can trade both crypto and equities while enforcing institutional-grade risk controls.
+This repository implements the **Intelligent Adaptive Trading Bot** described in the product, design, and risk documents under `docs/`. The goal is to deliver a production-ready, multi-service architecture capable of trading both crypto and equities while enforcing institutional-grade safeguards.
 
 ## Project Highlights
-- Multi-service layout: data ingestion, strategy evaluation, risk gating, order execution, reconciliation, and monitoring are isolated processes coordinated via Redis Streams.
-- Freqtrade upstream (`vendor/freqtrade`) vendored directly in the repo for backtesting, hyperopt, and FreqAI tooling referenced throughout the docs.
-- PostgreSQL-first persistence layer with SQLAlchemy models supporting order, position, and account state tracking. SQLite with WAL mode is available for local development.
-- Idempotent order pipeline with deterministic `client_order_id` generation and server-side stop installation for every open position.
-- Reconciliation service verifying exchange reality against local state every 10–30 seconds, auto-installing missing stops, and alerting on discrepancies.
-- Monitoring endpoints (FastAPI + Prometheus metrics) and Telegram-friendly alert hooks for health, circuit breakers, and risk events.
+- Multi-service layout: data ingestion, strategy evaluation, risk gating, execution, reconciliation, and monitoring all run as isolated processes communicating via Redis Streams.
+- Vendored Freqtrade (`vendor/freqtrade`) for deep backtesting, hyperopt, and FreqAI workflows aligned with the documentation.
+- PostgreSQL-first persistence with SQLAlchemy models for orders, positions, and account state. SQLite (WAL) remains available for local development.
+- Deterministic `client_order_id` pattern and mandatory server-side stops on every position.
+- Reconciliation loop verifying exchange state every 10–30 seconds and auto-repairing missing stops.
+- Monitoring endpoints (FastAPI + Prometheus) plus Telegram-ready alert hooks.
 
-## Getting Started
+## Prerequisites
+- Python 3.12 (or newer within the 3.x line supported by freqtrade).
+- Redis 6+ (local Docker container works for development).
+- PostgreSQL 15+ for production deployment (SQLite supported for local prototyping).
+- NTP-synchronised host clock (`timedatectl status` should report `System clock synchronized: yes`).
 
-1. **Create environment**
+## Installation
+1. **Clone and enter the repository**
    ```bash
-   python3 -m venv .venv
+   git clone https://github.com/Indelible-1/Trader.git
+   cd Trader
+   ```
+
+2. **Create and activate a virtual environment**
+   ```bash
+   python3.12 -m venv .venv
    source .venv/bin/activate
+   ```
+
+3. **Install Python dependencies**
+   ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure services**
-   - Copy `config/config.example.yaml` to `config/config.yaml`.
-   - Fill out API keys, Redis/PostgreSQL URLs, and risk parameters.
-   - Ensure the system clock is synchronized via NTP (`timedatectl status` should report `System clock synchronized: yes`).
-
-3. **Run services (development)**
-   In separate terminals:
+4. **Set up local environment variables**
    ```bash
-   python scripts/run_data_service.py
-   python scripts/run_strategy_service.py
-   python scripts/run_risk_service.py
-   python scripts/run_execution_service.py
-   python scripts/run_reconciliation_service.py
-   python scripts/run_monitor_service.py
-   freqtrade trade --config path/to/config.json  # optional: run upstream engine in parallel
+   cp .env.example .env
+   # edit .env with your exchange keys, redis/postgres URLs, notification tokens, etc.
+   ```
+   The application automatically loads `.env` values via `python-dotenv`.
+
+5. **Configure application settings**
+   ```bash
+   cp config/config.example.yaml config/config.yaml
+   # customise risk settings, Redis/PostgreSQL connections, enabled strategies, etc.
    ```
 
-4. **Freqtrade quickstart (optional)**
-   ```bash
-   source .venv/bin/activate
-   freqtrade create-userdir --userdir user_data
-   cp vendor/freqtrade/config_examples/config_full.example.json user_data/config.json
-   freqtrade show-config --config user_data/config.json
-   ```
-   These commands create a sandbox user directory, copy the full reference configuration, and validate it against the latest freqtrade build.
+## Running the Services
+Each microservice can be launched from its own terminal using the shared helper script:
 
-   The services communicate through Redis Streams; see `config` for stream names. All processes support `--dry-run` to exercise logic without placing live orders.
+```bash
+source .venv/bin/activate
+python scripts/run_service.py data
+python scripts/run_service.py strategy
+python scripts/run_service.py risk
+python scripts/run_service.py execution
+python scripts/run_service.py reconciliation
+python scripts/run_service.py monitor
+```
 
-4. **Paper trade then go live**
-   - Populate historical data using the data service bootstrap utilities.
-   - Enable the reconciler and confirm 100% stop coverage.
-   - Graduate from SQLite to PostgreSQL before connecting to live brokerage accounts.
+Services read configuration from `config/config.yaml` (or the file provided via the `TRADER_CONFIG` environment variable) and share environment variables defined in `.env`. For dry-run development the default config ships with Redis enabled and database access pointing to SQLite—swap to PostgreSQL by updating `config.yaml` or the `DATABASE_URL` variable.
 
-Refer to the documentation under `docs/` for the detailed roadmap, risk specification, and architecture requirements.
+## Freqtrade Research Toolkit (Optional)
+Freqtrade is vendored for strategy research and backtesting. Basic bootstrap:
+
+```bash
+source .venv/bin/activate
+freqtrade create-userdir --userdir user_data
+cp vendor/freqtrade/config_examples/config_full.example.json user_data/config.json
+freqtrade show-config --config user_data/config.json
+```
+
+Use the generated `user_data` directory for backtests, hyperopt runs, and FreqAI experiments while the custom services handle live orchestration and risk enforcement.
 
 ## Directory Layout
-- `docs/` — authoritative product, design, roadmap, risk, and critical updates documents.
-- `src/trader/` — core Python package with configuration helpers, models, services, and utilities.
-- `scripts/` — entrypoints for running individual services.
-- `config/` — configuration templates and deployment manifests.
-- `vendor/freqtrade/` — upstream freqtrade project (git-cloned) for strategy research/backtesting.
+- `docs/` — product requirements, technical design, roadmap, risk spec, and critical updates.
+- `src/trader/` — application package (configuration helpers, models, services, utilities).
+- `scripts/` — service launch helpers and operational tooling.
+- `config/` — configuration templates.
+- `vendor/freqtrade/` — full freqtrade project vendored for research workflows.
 
 ## Continuous Integration
 
-GitHub Actions (`.github/workflows/ci.yml`) installs the project requirements, compiles the source tree, and runs a `freqtrade --version` smoke test on every push and pull request targeting `main`.
+GitHub Actions (`.github/workflows/ci.yml`) installs project requirements, compiles the `src/` tree, and runs a `freqtrade --version` smoke test on every push and pull request targeting `main`.
 
 ## Next Steps
-- Implement secrets management suitable for your infrastructure (AWS Parameter Store, HashiCorp Vault, Doppler, etc.).
-- Extend the CI workflow with linting, unit/integration tests, and paper-trading smoke suites as they become available.
-- Deploy each service with `systemd`, Docker, or Kubernetes following the roadmap schedule.
+- Integrate secrets management (AWS Parameter Store, HashiCorp Vault, Doppler, etc.) for production deployments.
+- Extend the CI pipeline with linting, unit tests, integration tests, and paper-trading smoke suites.
+- Containerise or provision the services with `systemd`, Docker, or Kubernetes following the roadmap timeline.
 
-Trading is inherently risky. Backtest thoroughly, paper trade for multiple months, and never deploy without server-side stops and operational monitoring.
+Trading remains inherently risky. Backtest thoroughly, run extended paper trading, and never operate without server-side stops and live monitoring.
