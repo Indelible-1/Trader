@@ -1,0 +1,12 @@
+.venv/
+*.pyc
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+*.log
+freqtrade_user/
+user_data/
+*.sqlite3
+data/
+logs/

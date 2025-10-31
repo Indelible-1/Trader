@@ -1,0 +1,92 @@
+# Copy to config/config.yaml and adjust for your environment.
+
+app:
+  environment: development
+  log_level: INFO
+  base_currency: USD
+  dry_run: true
+
+database:
+  engine: sqlite
+  url: sqlite:///./trader_dev.db
+  echo: false
+  pool_size: 5
+  connect_args:
+    timeout: 30
+
+redis:
+  enabled: true
+  url: redis://localhost:6379/0
+  client_name: trader-bot
+  streams:
+    market_data: trader.market_data
+    signals: trader.signals
+    approved_signals: trader.approved_signals
+    orders: trader.orders
+    executions: trader.executions
+    reconciliations: trader.reconciliations
+
+exchanges:
+  - name: binance
+    module: ccxt.binanceusdm
+    api_key: ${BINANCE_API_KEY}
+    api_secret: ${BINANCE_API_SECRET}
+    password: null
+    sandbox: true
+    rate_limit: 1200
+    symbols:
+      - BTC/USDT
+  - name: alpaca
+    module: trader.integrations.alpaca
+    api_key: ${ALPACA_API_KEY}
+    api_secret: ${ALPACA_API_SECRET}
+    paper: true
+    symbols:
+      - SPY
+
+risk:
+  max_risk_per_trade: 0.02
+  max_portfolio_heat: 0.06
+  max_leverage: 1.5
+  volatility_targeting:
+    enabled: true
+    target_portfolio_vol: 0.10
+    ewma_halflife_days: 30
+  circuit_breakers:
+    daily_loss: 0.05
+    total_drawdown: 0.15
+    volatility_multiplier: 3.0
+
+strategies:
+  - name: trend_following
+    enabled: true
+    module: trader.strategies.trend_following
+    parameters:
+      fast_ma_period: 50
+      slow_ma_period: 200
+      atr_period: 14
+      atr_multiplier: 2.0
+      timeframe: 1h
+      rebalance_interval_minutes: 5
+
+monitoring:
+  telegram:
+    enabled: false
+    bot_token: ${TELEGRAM_BOT_TOKEN}
+    chat_id: ${TELEGRAM_CHAT_ID}
+  prometheus:
+    enabled: true
+    host: 0.0.0.0
+    port: 9000
+  health_check:
+    max_clock_skew_seconds: 1.0
+    ntp_check_interval_seconds: 3600
+
+reconciliation:
+  enabled: true
+  interval_seconds: 30
+  auto_repair: true
+
+backtesting:
+  data_path: ./data/history
+  results_path: ./data/results
