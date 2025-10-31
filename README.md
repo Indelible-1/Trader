@@ -61,9 +61,13 @@ Refer to the documentation under `docs/` for the detailed roadmap, risk specific
 - `config/` — configuration templates and deployment manifests.
 - `vendor/freqtrade/` — upstream freqtrade project (git-cloned) for strategy research/backtesting.
 
+## Continuous Integration
+
+GitHub Actions (`.github/workflows/ci.yml`) installs the project requirements, compiles the source tree, and runs a `freqtrade --version` smoke test on every push and pull request targeting `main`.
+
 ## Next Steps
 - Implement secrets management suitable for your infrastructure (AWS Parameter Store, HashiCorp Vault, Doppler, etc.).
-- Set up CI workflows for linting, unit tests, and integration smoke tests.
+- Extend the CI workflow with linting, unit/integration tests, and paper-trading smoke suites as they become available.
 - Deploy each service with `systemd`, Docker, or Kubernetes following the roadmap schedule.
 
 Trading is inherently risky. Backtest thoroughly, paper trade for multiple months, and never deploy without server-side stops and operational monitoring.
